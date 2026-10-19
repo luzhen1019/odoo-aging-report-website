@@ -4,8 +4,8 @@ Odoo 19 自定义模块 `aging_report` 的独立展示站。与 Odoo 系统本�
 
 ## 在线访问
 
-- 在线演示：<https://zth183.github.io/odoo-aging-report-website/>
-- 源码仓库：<https://github.com/Zth183/odoo-aging-report-website>
+- 在线演示：<https://luzhen1019.github.io/odoo-aging-report-website/>
+- 源码仓库：<https://github.com/luzhen1019/odoo-aging-report-website>
 
 本地打开：直接双击本目录下的 `index.html`，或用浏览器打开：
 
