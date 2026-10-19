@@ -1,0 +1,1582 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Odoo 19 自定义模块 aging_report：应收应付账龄分析、五段账龄、逾期风险清单、OWL + Chart.js 看板与 Excel / PDF 导出。">
+<title>账龄分析 · Odoo 19</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23ffffff'/%3E%3Crect x='6' y='6' width='20' height='20' fill='%230f62fe'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Sans+SC:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:light;
+  --blue:#0f62fe; --blue-hover:#0050e6; --blue-80:#002d9c;
+  --ink:#161616; --ink-muted:#525252; --ink-subtle:#8c8c8c;
+  --canvas:#ffffff; --surface:#f4f4f4; --surface-2:#e0e0e0;
+  --hairline:#e0e0e0; --inverse:#161616; --inverse-muted:#c6c6c6;
+  --error:#da1e28; --warning:#8a6d00; --success:#24a148;
+  --mono:"IBM Plex Mono",Consolas,monospace;
+  --sans:"IBM Plex Sans","IBM Plex Sans SC","Microsoft YaHei","PingFang SC","Helvetica Neue",Arial,sans-serif;
+  --maxw:1312px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:64px}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+body{margin:0;background:var(--canvas);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.5;letter-spacing:.16px;-webkit-font-smoothing:antialiased}
+img{max-width:100%;display:block}
+a{color:var(--blue);text-decoration:none}
+a:hover{color:var(--blue-hover);text-decoration:underline}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+h1,h2,h3{text-wrap:balance}
+.wrap{width:100%;max-width:var(--maxw);margin:0 auto;padding-left:max(32px,env(safe-area-inset-left,0px));padding-right:max(32px,env(safe-area-inset-right,0px))}
+.skip{position:absolute;left:-9999px;top:0;background:var(--canvas);padding:12px 16px;z-index:999}
+.skip:focus{left:16px;top:8px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+.utility{height:32px;background:var(--surface);border-bottom:1px solid var(--hairline);font-size:12px;letter-spacing:.32px;color:var(--ink-muted)}
+.utility .wrap{display:flex;align-items:center;justify-content:space-between;height:100%}
+.topnav{position:sticky;top:0;z-index:50;background:var(--canvas);border-bottom:1px solid var(--hairline)}
+.topnav .wrap{display:flex;align-items:center;height:48px;gap:28px}
+.brand{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;color:var(--ink);white-space:nowrap}
+.brand:hover{text-decoration:none;color:var(--ink)}
+.brand .mark{width:10px;height:10px;background:var(--blue);flex:0 0 auto}
+.navlinks{display:flex;gap:24px;margin-left:8px}
+.navlinks a{font-size:14px;color:var(--ink-muted);white-space:nowrap}
+.navlinks a:hover{color:var(--ink);text-decoration:none}
+.lang{margin-left:auto;display:flex;border:1px solid var(--hairline)}
+.lang button{background:none;border:0;padding:0 12px;min-height:36px;font:inherit;font-size:13px;color:var(--ink-muted);cursor:pointer}
+.lang button:hover{color:var(--ink)}
+.lang button.active{color:var(--ink);font-weight:600;box-shadow:inset 0 -2px 0 var(--blue)}
+
+.hero{padding:72px 0 56px}
+.hero-grid{display:grid;grid-template-columns:1.02fr .98fr;gap:48px;align-items:start}
+.eyebrow{font-size:14px;color:var(--ink-muted);display:flex;align-items:center;gap:10px;margin:0 0 16px}
+.eyebrow::before{content:"";width:16px;height:16px;background:var(--blue);flex:0 0 auto}
+h1{font-size:clamp(38px,4.6vw,60px);line-height:1.17;letter-spacing:-.4px;font-weight:300;margin:0 0 24px}
+.lead{font-size:18px;line-height:1.5;color:var(--ink-muted);margin:0 0 32px;max-width:34em}
+.actions{display:flex;flex-wrap:wrap;gap:16px}
+.btn{display:inline-flex;align-items:center;gap:10px;padding:12px 16px;font-size:14px;letter-spacing:.16px;border:1px solid transparent;background:var(--blue);color:#fff;cursor:pointer;font-family:inherit}
+.btn:hover{background:var(--blue-hover);color:#fff;text-decoration:none}
+.btn .arrow{font-family:var(--mono);font-size:14px}
+.btn.secondary{background:var(--ink);color:#fff}
+.btn.secondary:hover{background:#262626}
+.btn.tertiary{background:transparent;color:var(--blue);border-color:var(--blue)}
+.btn.tertiary:hover{background:var(--blue);color:#fff}
+.hero-figure{border:1px solid var(--hairline);margin:0;background:var(--canvas)}
+.hero-figure img{width:100%;height:auto}
+.hero-figure figcaption{padding:12px 16px;font-size:12px;color:var(--ink-muted);letter-spacing:.32px;border-top:1px solid var(--hairline)}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--ink);margin-top:56px}
+.kpi{padding:20px 16px 0 0;border-right:1px solid var(--hairline);min-width:0}
+.kpi:last-child{border-right:0}
+.kpi b{display:block;font-size:clamp(28px,2.8vw,38px);font-weight:300;line-height:1.1;letter-spacing:-.4px;white-space:nowrap}
+.kpi span{display:block;margin-top:8px;font-size:12px;color:var(--ink-muted);letter-spacing:.32px;line-height:1.4}
+
+section{padding:80px 0}
+.band{background:var(--surface);border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline)}
+.section-head{max-width:920px;margin-bottom:40px}
+h2{font-size:clamp(30px,3.4vw,42px);font-weight:300;line-height:1.2;letter-spacing:0;margin:0 0 16px}
+.section-head p{color:var(--ink-muted);font-size:16px;margin:0;max-width:720px}
+
+.grid-3,.grid-6{display:grid;gap:1px;background:var(--hairline);border:1px solid var(--hairline)}
+.grid-3{grid-template-columns:repeat(3,1fr)}
+.grid-6{grid-template-columns:repeat(3,1fr)}
+.card{background:var(--canvas);padding:24px;min-width:0}
+.card .num{font-family:var(--mono);font-size:12px;color:var(--blue);letter-spacing:.32px}
+.card h3{font-size:22px;font-weight:400;line-height:1.3;margin:12px 0 8px}
+.card p{font-size:14px;line-height:1.5;color:var(--ink-muted);margin:0}
+.insight{margin-top:32px;border-left:4px solid var(--blue);padding:16px 24px;background:var(--canvas);font-size:18px;color:var(--ink)}
+.insight span{color:var(--ink-muted);font-size:14px;display:block;margin-top:4px}
+
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--hairline);border:1px solid var(--hairline);counter-reset:step}
+.step{background:var(--canvas);padding:24px}
+.step .idx{font-family:var(--mono);font-size:12px;color:var(--blue)}
+.step h3{font-size:18px;font-weight:500;margin:10px 0 6px}
+.step p{font-size:14px;color:var(--ink-muted);margin:0}
+
+.dashboard-frame{border:1px solid var(--hairline);background:var(--canvas);padding:0;max-width:1040px;margin:0 auto}
+.dashboard-frame img{width:100%;height:auto}
+.dashboard-frame figcaption{padding:12px 16px;font-size:12px;color:var(--ink-muted);border-top:1px solid var(--hairline);letter-spacing:.32px}
+
+.table-scroll{overflow-x:auto;max-width:100%;border:1px solid var(--hairline);background:var(--canvas)}
+.data-grid > *,.grid-3 > *,.grid-6 > *,.gallery > *,.doc-list > *,.steps > *{min-width:0}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:560px}
+th{text-align:left;background:var(--surface);font-weight:600;font-size:12px;letter-spacing:.32px;color:var(--ink-muted);padding:12px 16px;border-bottom:1px solid var(--ink);white-space:nowrap}
+td{padding:12px 16px;border-bottom:1px solid var(--hairline);vertical-align:top}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--surface)}
+td.num,th.num{text-align:right;font-family:var(--mono);font-size:13px;white-space:nowrap}
+tfoot td{font-weight:600;border-top:1px solid var(--ink);background:var(--surface)}
+.code{font-family:var(--mono);font-size:13px}
+.sev{display:inline-block;font-size:12px;letter-spacing:.32px;padding:2px 8px;border:1px solid currentColor;white-space:nowrap}
+.sev.error{color:var(--error)}
+.sev.warn{color:var(--warning)}
+.sev.ok{color:var(--success)}
+
+/* live aging module */
+.live-dot{width:8px;height:8px;background:var(--success);display:inline-block;flex:0 0 auto}
+.app{border:1px solid var(--ink);background:var(--canvas);margin-top:8px}
+.app.dragover{outline:2px dashed var(--blue);outline-offset:-8px}
+.app-bar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 20px;background:var(--ink);color:#fff;flex-wrap:wrap}
+.app-title{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;letter-spacing:.16px;min-width:0}
+.app-title .mark{width:8px;height:8px;background:var(--blue);flex:0 0 auto}
+.app-meta{font-size:12px;color:var(--inverse-muted);letter-spacing:.32px;margin-left:auto;text-align:right}
+.app-actions{display:flex;gap:8px;flex-wrap:wrap}
+.app-actions .btn{min-height:40px;padding:9px 14px;font-size:13px;white-space:nowrap}
+.app-actions .btn.ghost{background:transparent;border-color:#525252;color:#fff}
+.app-actions .btn.ghost:hover{background:#262626;color:#fff}
+.app-msg{padding:10px 20px;font-size:13px;line-height:1.45;border-bottom:1px solid var(--hairline);white-space:pre-line}
+.app-msg.error{background:#fff1f1;color:var(--error);box-shadow:inset 4px 0 0 var(--error)}
+.app-msg.ok{background:#defbe6;color:#0e6027;box-shadow:inset 4px 0 0 var(--success)}
+.aging-controls{display:flex;align-items:flex-end;gap:24px;padding:14px 20px;border-bottom:1px solid var(--hairline);flex-wrap:wrap;background:var(--surface)}
+.control{display:flex;flex-direction:column;gap:5px;font-size:11px;letter-spacing:.32px;color:var(--ink-muted)}
+.control input{min-height:38px;border:1px solid var(--hairline);border-bottom-color:var(--ink-subtle);background:var(--canvas);padding:7px 10px;font:inherit;font-size:13px;color:var(--ink);width:160px}
+.control input[type=number]{width:150px;font-family:var(--mono);font-size:12px}
+.control input:focus{outline:2px solid var(--blue);outline-offset:-2px}
+.seg{display:flex;border:1px solid var(--hairline);background:var(--canvas)}
+.seg button{background:none;border:0;padding:8px 14px;font:inherit;font-size:13px;color:var(--ink-muted);cursor:pointer;min-height:38px;white-space:nowrap}
+.seg button+button{border-left:1px solid var(--hairline)}
+.seg button:hover{background:var(--surface);color:var(--ink)}
+.seg button.active{background:var(--ink);color:#fff}
+.control-hint{margin-left:auto;font-size:12px;color:var(--ink-muted);align-self:center;letter-spacing:.16px}
+.app-kpis{display:grid;grid-template-columns:repeat(5,1fr);border-bottom:1px solid var(--hairline)}
+.app-kpi{padding:14px 16px;border-right:1px solid var(--hairline);min-width:0}
+.app-kpi:last-child{border-right:0}
+.app-kpi b{display:block;font-size:clamp(22px,2.1vw,30px);font-weight:300;line-height:1.1;letter-spacing:-.2px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.app-kpi span{display:block;margin-top:4px;font-size:11px;letter-spacing:.32px;color:var(--ink-muted);line-height:1.3}
+.app-kpi.overdue b{color:var(--error)}
+.app-kpi.high b{color:var(--error)}
+.aging-panels{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--hairline);border-bottom:1px solid var(--hairline)}
+.panel-box{background:var(--canvas);padding:20px;min-width:0}
+.block-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;font-size:12px;font-weight:600;letter-spacing:.32px;color:var(--ink-muted);margin-bottom:16px}
+.block-head span:last-child{font-family:var(--mono);font-weight:400;font-size:11px;color:var(--ink-subtle);white-space:nowrap}
+.bucket-row{display:grid;grid-template-columns:94px minmax(0,1fr) 118px;gap:12px;align-items:center;padding:7px 0;font-size:13px}
+.bucket-label{display:flex;align-items:baseline;justify-content:space-between;gap:8px;white-space:nowrap}
+.bucket-label small{font-family:var(--mono);font-size:11px;color:var(--ink-subtle)}
+.bar-track{height:10px;background:var(--surface);position:relative;min-width:0}
+.bar-fill{height:100%;background:var(--blue);min-width:0}
+.bar-fill.b-not_due{background:#a6c8ff}
+.bar-fill.b-d0_30{background:#78a9ff}
+.bar-fill.b-d30_60{background:#4589ff}
+.bar-fill.b-d60_90{background:var(--blue)}
+.bar-fill.b-d90_plus{background:var(--blue-80)}
+.bucket-amt{text-align:right;font-family:var(--mono);font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.risk-mix{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--hairline);border:1px solid var(--hairline)}
+.risk-item{background:var(--canvas);padding:14px;min-width:0}
+.r-label{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-muted);letter-spacing:.16px;white-space:nowrap}
+.r-label .dot{width:8px;height:8px;flex:0 0 auto}
+.risk-item b{display:block;font-size:26px;font-weight:300;line-height:1.2;margin-top:8px;font-variant-numeric:tabular-nums}
+.risk-item .r-amt{display:block;font-family:var(--mono);font-size:11px;color:var(--ink-muted);margin-top:2px;white-space:nowrap}
+.risk-item.high b{color:var(--error)}
+.risk-item.watch b{color:var(--warning)}
+.dot.green{background:var(--success)}
+.dot.grey{background:var(--ink-subtle)}
+.result-tools{display:flex;align-items:center;gap:16px;padding:10px 16px;border-bottom:1px solid var(--hairline);flex-wrap:wrap}
+.filters{display:flex;border:1px solid var(--hairline);flex-wrap:wrap}
+.filters button{background:none;border:0;border-right:1px solid var(--hairline);padding:7px 11px;font:inherit;font-size:12px;color:var(--ink-muted);cursor:pointer;white-space:nowrap}
+.filters button:last-child{border-right:0}
+.filters button:hover{background:var(--surface);color:var(--ink)}
+.filters button.active{color:var(--ink);font-weight:600;box-shadow:inset 0 -2px 0 var(--blue)}
+.filters button span{font-family:var(--mono);font-size:11px;margin-left:2px;color:var(--ink-subtle)}
+.filters button.active span{color:var(--blue)}
+.search{margin-left:auto;display:flex;min-width:0}
+.search input{width:230px;max-width:100%;min-height:36px;border:0;border-bottom:1px solid var(--ink-subtle);background:var(--surface);padding:7px 36px 7px 12px;font:inherit;font-size:13px;color:var(--ink);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23525252' viewBox='0 0 32 32'%3E%3Cpath d='M29 27.6 21.2 19.8a10 10 0 1 0-1.4 1.4L27.6 29ZM4 13a9 9 0 1 1 9 9 9 9 0 0 1-9-9Z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+.search input:focus{outline:2px solid var(--blue);outline-offset:-2px;background-color:var(--canvas)}
+.btn-sm{background:none;border:1px solid var(--blue);color:var(--blue);padding:8px 12px;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}
+.btn-sm:hover{background:var(--blue);color:#fff}
+.aging-table{max-height:560px;overflow:auto;border-bottom:1px solid var(--hairline);scrollbar-width:thin;scrollbar-color:var(--ink-subtle) transparent}
+.aging-table table{min-width:1020px;font-size:13px}
+.aging-table th{position:sticky;top:0;z-index:1;background:var(--surface);padding:10px 12px;white-space:nowrap}
+.aging-table td{padding:9px 12px;font-size:13px;vertical-align:middle}
+.aging-table .partner{min-width:170px}
+.aging-table .partner b{display:block;font-weight:500;line-height:1.35}
+.aging-table .partner small{display:block;color:var(--ink-subtle);font-family:var(--mono);font-size:11px;line-height:1.35}
+.risk-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;white-space:nowrap}
+.risk-badge::before{content:"";width:8px;height:8px;background:currentColor;flex:0 0 auto}
+.risk-badge.high{color:var(--error)}
+.risk-badge.watch{color:var(--warning)}
+.risk-badge.normal{color:var(--success)}
+.overdue{color:var(--error);font-family:var(--mono);font-size:12px;white-space:nowrap}
+.notdue{color:var(--ink-subtle);font-family:var(--mono);font-size:12px;white-space:nowrap}
+.no-match{text-align:center;color:var(--ink-muted);padding:32px 16px!important}
+.app-empty{padding:56px 24px;text-align:center;border-bottom:1px solid var(--hairline)}
+.app-empty b{display:block;font-size:18px;font-weight:400;color:var(--ink);margin-bottom:6px}
+.app-empty p{margin:0;font-size:14px;color:var(--ink-muted)}
+.app-foot{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:10px 16px;font-size:12px;color:var(--ink-muted);letter-spacing:.16px}
+.app-foot a{font-size:12px}
+.link-btn{background:none;border:0;padding:0;font:inherit;font-size:12px;color:var(--blue);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.link-btn:hover{color:var(--blue-hover)}
+@media (max-width:1055px){
+  .aging-panels{grid-template-columns:1fr}
+  .app-meta{order:3;margin-left:0;text-align:left;width:100%}
+  .app-bar{gap:12px}
+}
+@media (max-width:671px){
+  .app-bar{padding:14px 16px}
+  .app-actions{width:100%}
+  .app-actions .btn{flex:1 1 auto;justify-content:center}
+  .aging-controls{gap:12px;padding:14px 16px}
+  .control,.control input{width:100%}
+  .control input{width:100%}
+  .seg{width:100%}
+  .seg button{flex:1}
+  .control-hint{margin-left:0;width:100%}
+  .app-kpis{grid-template-columns:repeat(2,1fr)}
+  .app-kpi{border-bottom:1px solid var(--hairline)}
+  .app-kpi:nth-child(2n){border-right:0}
+  .app-kpi:last-child{grid-column:1/-1;border-bottom:0;border-right:0}
+  .risk-mix{grid-template-columns:1fr}
+  .bucket-row{grid-template-columns:80px minmax(0,1fr) 96px;gap:8px}
+  .bucket-amt{font-size:11px}
+  .result-tools{gap:8px}
+  .search{margin-left:0;width:100%}
+  .search input{width:100%}
+  .btn-sm{width:100%;justify-content:center}
+  .aging-table{max-height:520px}
+  .app-foot{flex-direction:column;gap:6px}
+}
+
+.gallery{display:grid;grid-template-columns:repeat(2,1fr);gap:24px;align-items:start}
+.gallery figure:last-child{grid-column:1/-1}
+figure.shot{border:1px solid var(--hairline);margin:0;background:var(--canvas);min-width:0}
+figure.shot img{width:100%;height:auto;cursor:zoom-in}
+figure.shot figcaption{padding:12px 16px;font-size:12px;color:var(--ink-muted);border-top:1px solid var(--hairline);letter-spacing:.32px}
+figure.shot:hover{border-color:var(--ink-subtle)}
+
+.data-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:48px;align-items:start}
+.stat-lines{border-top:1px solid var(--ink)}
+.stat-line{display:flex;align-items:baseline;justify-content:space-between;gap:24px;padding:14px 0;border-bottom:1px solid var(--hairline);font-size:14px}
+.stat-line b{font-family:var(--mono);font-size:20px;font-weight:400;white-space:nowrap}
+.risk-legend{display:grid;gap:1px;background:var(--hairline);border:1px solid var(--hairline);margin-top:24px}
+.risk-legend div{background:var(--canvas);padding:16px 20px;display:flex;gap:12px;align-items:flex-start}
+.risk-legend .dot{width:10px;height:10px;flex:0 0 auto;margin-top:5px}
+.risk-legend b{display:block;font-size:14px;font-weight:600}
+.risk-legend span{font-size:13px;color:var(--ink-muted)}
+.dot.red{background:var(--error)}
+.dot.amber{background:#f1c21b}
+
+.doc-list{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--hairline);border:1px solid var(--hairline)}
+.doc{background:var(--canvas);padding:24px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.doc .kind{font-family:var(--mono);font-size:12px;color:var(--ink-muted);letter-spacing:.32px}
+.doc h3{font-size:20px;font-weight:400;margin:0}
+.doc p{font-size:14px;color:var(--ink-muted);margin:0}
+.doc a{margin-top:auto;padding-top:8px;font-size:14px;display:inline-flex;gap:8px;align-items:center}
+
+.scope{border:1px solid var(--hairline);border-left:4px solid var(--blue);padding:24px 28px;background:var(--canvas)}
+.scope h2{font-size:24px;font-weight:400;margin:0 0 12px}
+.scope p{font-size:14px;color:var(--ink-muted);margin:0 0 8px}
+.scope p:last-child{margin-bottom:0}
+
+footer{background:var(--inverse);color:var(--inverse-muted);padding:64px 0 32px;font-size:14px}
+footer .cols{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:48px}
+footer h4{color:#fff;font-size:14px;font-weight:600;margin:0 0 16px;letter-spacing:.16px}
+footer p{margin:0 0 8px;line-height:1.6}
+footer a{color:var(--inverse-muted)}
+footer a:hover{color:#fff}
+.foot-bottom{border-top:1px solid #393939;margin-top:48px;padding-top:24px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:12px;letter-spacing:.32px}
+.foot-brand{display:flex;align-items:center;gap:10px;color:#fff;font-weight:600;margin-bottom:16px}
+.foot-brand .mark{width:10px;height:10px;background:var(--blue)}
+
+.lightbox{position:fixed;inset:0;background:rgba(22,22,22,.95);z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+.lightbox img{max-width:min(1400px,96vw);max-height:84vh;width:auto;height:auto;border:1px solid #393939}
+.lightbox figcaption{color:var(--inverse-muted);font-size:12px;letter-spacing:.32px;margin-top:12px;text-align:center;max-width:90vw}
+.lb-close{position:fixed;top:16px;right:16px;width:40px;height:40px;background:transparent;border:1px solid #525252;color:#fff;font-size:20px;cursor:pointer;line-height:1}
+.lb-close:hover{background:#262626}
+[hidden]{display:none!important}
+
+html[data-lang="zh"] .en{display:none}
+html[data-lang="en"] .zh{display:none}
+
+@media (max-width:1055px){
+  .hero-grid,.data-grid{grid-template-columns:1fr}
+  .grid-3,.grid-6,.gallery,.steps,.doc-list{grid-template-columns:repeat(2,1fr)}
+  .kpis{grid-template-columns:repeat(3,1fr)}
+  .kpi{border-bottom:1px solid var(--hairline);padding-bottom:16px}
+  .kpi:nth-child(3n){border-right:0}
+}
+@media (max-width:671px){
+  .utility{display:none}
+  .navlinks{display:none}
+  .wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .hero{padding:48px 0 40px}
+  section{padding:56px 0}
+  .grid-3,.grid-6,.gallery,.steps,.doc-list{grid-template-columns:1fr}
+  .kpis{grid-template-columns:1fr 1fr}
+  .kpi{border-right:0;padding-right:0}
+  .kpi b{font-size:26px}
+  .kpi:nth-child(2n){padding-left:12px;border-left:1px solid var(--hairline)}
+  footer .cols{grid-template-columns:1fr;gap:32px}
+  .actions .btn{width:100%;justify-content:space-between}
+  .topnav .wrap{gap:16px}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main"><span class="zh">跳到正文</span><span class="en">Skip to content</span></a>
+
+<div class="utility">
+  <div class="wrap">
+    <span><span class="zh">Odoo 19 · 个人实践项目</span><span class="en">Odoo 19 · Personal practice project</span></span>
+    <span><span class="zh">本机演示 · admin / admin</span><span class="en">Local demo · admin / admin</span></span>
+  </div>
+</div>
+
+<header class="topnav">
+  <div class="wrap">
+    <a class="brand" href="#top"><span class="mark" aria-hidden="true"></span><span class="zh">账龄分析</span><span class="en">Aging Analysis</span></a>
+    <nav class="navlinks" aria-label="主导航 / Main navigation">
+      <a href="#try"><span class="zh">在线试用</span><span class="en">Live demo</span></a>
+      <a href="#dashboard"><span class="zh">看板</span><span class="en">Dashboard</span></a>
+      <a href="#features"><span class="zh">功能</span><span class="en">Features</span></a>
+      <a href="#data"><span class="zh">数据</span><span class="en">Data</span></a>
+      <a href="#screenshots"><span class="zh">截图</span><span class="en">Screens</span></a>
+      <a href="#downloads"><span class="zh">导出</span><span class="en">Exports</span></a>
+    </nav>
+    <div class="lang" role="group" aria-label="Language / 语言">
+      <button type="button" data-lang="zh" class="active" aria-pressed="true">中文</button>
+      <button type="button" data-lang="en" aria-pressed="false">EN</button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+<section class="hero" id="top">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div>
+        <p class="eyebrow">Odoo 19 · AR / AP aging</p>
+        <h1>
+          <span class="zh">上传应收应付明细，自动得到账龄与逾期风险</span>
+          <span class="en">Upload AR/AP ledgers, get aging and overdue risk automatically</span>
+        </h1>
+        <p class="lead">
+          <span class="zh">自定义模块 aging_report：中文表头自动识别、五段账龄划分、逾期风险清单、OWL + Chart.js 看板，以及 Excel / PDF 报告导出。</span>
+          <span class="en">A custom Odoo 19 module, aging_report: Chinese header detection, five aging buckets, an overdue risk list, an OWL + Chart.js dashboard, and Excel / PDF exports.</span>
+        </p>
+        <div class="actions">
+          <a class="btn" href="#try"><span class="zh">在线分析账龄</span><span class="en">Analyse an aging file live</span><span class="arrow" aria-hidden="true">→</span></a>
+          <a class="btn tertiary" href="#dashboard"><span class="zh">查看看板</span><span class="en">See the dashboard</span></a>
+        </div>
+      </div>
+      <figure class="hero-figure">
+        <img src="assets/04_report_form.png" alt="账龄报表表单 / Aging report form" width="1440" height="900">
+        <figcaption>
+          <span class="zh">账龄报表表单：一个批次同时汇总应收、应付与逾期风险。</span>
+          <span class="en">Aging report form: one batch summarises receivables, payables and overdue risk together.</span>
+        </figcaption>
+      </figure>
+    </div>
+
+    <div class="kpis" aria-label="关键指标 / Key metrics">
+      <div class="kpi"><b>111</b><span><span class="zh">行应收应付明细</span><span class="en">AR / AP lines</span></span></div>
+      <div class="kpi"><b>¥13.48M</b><span><span class="zh">余额合计</span><span class="en">total balance</span></span></div>
+      <div class="kpi"><b>69.93<span style="font-size:.55em">%</span></b><span><span class="zh">逾期金额占比</span><span class="en">overdue share</span></span></div>
+      <div class="kpi"><b>38</b><span><span class="zh">笔高风险明细</span><span class="en">high-risk lines</span></span></div>
+      <div class="kpi"><b>216</b><span><span class="zh">项验证通过 / 0 失败</span><span class="en">checks passed / 0 failed</span></span></div>
+    </div>
+  </div>
+</section>
+
+<section id="try">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow"><span class="live-dot" aria-hidden="true"></span><span class="zh">在线试用 · 真实解析与计算</span><span class="en">Live demo · real parsing and aging logic</span></p>
+      <h2><span class="zh">把账龄表拖进来，分段和风险当场算出来</span><span class="en">Drop in an aging ledger and get buckets and risk immediately</span></h2>
+      <p><span class="zh">浏览器里运行与 aging_report 相同的解析器和账龄公式：自动探测标题行、清洗日期金额、缺少到期日时按 30 天账期推算。改截止日或大额阈值，全部结果立即重算；数据不离开本页。</span><span class="en">The same parser and aging formulas as aging_report, running in your browser: automatic header detection, date and amount cleaning, and a 30-day term when the due date is missing. Change the cutoff or large-amount threshold and everything recomputes; data never leaves this page.</span></p>
+    </div>
+
+    <div class="app" id="aging-app">
+      <div class="app-bar">
+        <div class="app-title"><span class="mark" aria-hidden="true"></span><span class="zh">账龄分析台</span><span class="en">Aging console</span></div>
+        <div class="app-meta" id="a-meta" aria-live="polite">加载中…</div>
+        <div class="app-actions">
+          <button class="btn" type="button" id="a-import-btn"><span class="zh">导入 Excel / CSV</span><span class="en">Import Excel / CSV</span></button>
+          <input id="a-file" type="file" accept=".xlsx,.xlsm,.xls,.csv,.txt" hidden>
+          <button class="btn ghost" type="button" id="a-sample-ar"><span class="zh">应收样例</span><span class="en">AR sample</span></button>
+          <button class="btn ghost" type="button" id="a-sample-ap"><span class="zh">应付样例</span><span class="en">AP sample</span></button>
+          <button class="btn ghost" type="button" id="a-clear"><span class="zh">清空</span><span class="en">Clear</span></button>
+        </div>
+      </div>
+      <div class="app-msg" id="a-message" role="alert" hidden></div>
+
+      <div class="aging-controls">
+        <div class="control">
+          <span><span class="zh">报表类型</span><span class="en">Report type</span></span>
+          <div class="seg" id="a-type" role="group" aria-label="报表类型 / Report type">
+            <button type="button" data-type="receivable" class="active"><span class="zh">应收</span><span class="en">AR</span></button>
+            <button type="button" data-type="payable"><span class="zh">应付</span><span class="en">AP</span></button>
+          </div>
+        </div>
+        <label class="control">
+          <span><span class="zh">账龄截止日</span><span class="en">Cutoff date</span></span>
+          <input type="date" id="a-date" value="2026-10-19">
+        </label>
+        <label class="control">
+          <span><span class="zh">大额阈值（¥）</span><span class="en">Large-amount threshold (¥)</span></span>
+          <input type="number" id="a-threshold" value="100000" min="0" step="10000">
+        </label>
+        <span class="control-hint"><span class="zh">改动立即重算 · 上传时自动识别应收 / 应付</span><span class="en">Changes recalculate live · AR/AP is detected on upload</span></span>
+      </div>
+
+      <div class="app-kpis" id="a-kpis"></div>
+
+      <div class="aging-panels">
+        <div class="panel-box">
+          <div class="block-head">
+            <span><span class="zh">账龄分布</span><span class="en">Aging distribution</span></span>
+            <span id="a-bucket-total"></span>
+          </div>
+          <div id="a-bars"></div>
+        </div>
+        <div class="panel-box">
+          <div class="block-head">
+            <span><span class="zh">风险构成</span><span class="en">Risk mix</span></span>
+            <span id="a-risk-total"></span>
+          </div>
+          <div class="risk-mix" id="a-risk"></div>
+        </div>
+      </div>
+
+      <div class="result-tools">
+        <div class="filters" id="a-filters" role="group" aria-label="筛选风险等级 / Filter by risk"></div>
+        <label class="search">
+          <span class="sr-only">搜索 / Search</span>
+          <input type="search" id="a-search" autocomplete="off">
+        </label>
+        <button class="btn-sm" type="button" id="a-export"><span class="zh">导出明细 CSV</span><span class="en">Export CSV</span></button>
+      </div>
+
+      <div class="aging-table" id="a-table-wrap">
+        <table>
+          <caption class="sr-only">账龄分析与风险清单 / Aging analysis and risk list</caption>
+          <thead>
+            <tr>
+              <th scope="col"><span class="zh">风险</span><span class="en">Risk</span></th>
+              <th scope="col"><span class="zh">往来单位</span><span class="en">Partner</span></th>
+              <th scope="col"><span class="zh">单据号</span><span class="en">Document</span></th>
+              <th scope="col"><span class="zh">到期日</span><span class="en">Due date</span></th>
+              <th scope="col"><span class="zh">逾期天数</span><span class="en">Days overdue</span></th>
+              <th scope="col"><span class="zh">账龄段</span><span class="en">Bucket</span></th>
+              <th scope="col" class="num"><span class="zh">余额</span><span class="en">Balance</span></th>
+              <th scope="col"><span class="zh">业务员 / 采购员</span><span class="en">Owner</span></th>
+            </tr>
+          </thead>
+          <tbody id="a-tbody"></tbody>
+        </table>
+      </div>
+      <div class="app-empty" id="a-empty" hidden>
+        <b><span class="zh">尚未载入数据</span><span class="en">No data loaded</span></b>
+        <p><span class="zh">使用上方按钮载入应收 / 应付样例，或把 Excel / CSV 文件拖到此处。</span><span class="en">Use the buttons above to load an AR/AP sample, or drop an Excel / CSV file here.</span></p>
+      </div>
+      <div class="app-foot">
+        <span id="a-foot-note"></span>
+        <span><a href="#" id="a-template"><span class="zh">下载当前类型导入模板</span><span class="en">Download import template</span></a> · <span id="a-display"></span></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="overview">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow"><span class="zh">项目背景</span><span class="en">Context</span></p>
+      <h2><span class="zh">月底的账龄表，不该靠手工透视</span><span class="en">Month-end aging should not be manual pivot work</span></h2>
+      <p><span class="zh">这是一个装在 Odoo 里的分析模块，而不是一个脱离业务系统的 Excel 模板。</span><span class="en">An analysis module inside Odoo, not an Excel template detached from the business system.</span></p>
+    </div>
+    <div class="grid-3">
+      <article class="card">
+        <div class="num">01</div>
+        <h3><span class="zh">痛点</span><span class="en">Problem</span></h3>
+        <p><span class="zh">月底手工把应收应付明细按到期日分段，容易算错；逾期客户靠 Excel 排序筛选，口径不统一，也难以追溯源文件。</span><span class="en">At month-end, AR/AP lines are bucketed by due date by hand. Errors creep in, overdue customers are sorted in Excel, definitions drift and the source file is hard to trace.</span></p>
+      </article>
+      <article class="card">
+        <div class="num">02</div>
+        <h3><span class="zh">做法</span><span class="en">Approach</span></h3>
+        <p><span class="zh">导入明细后自动清洗、按截止日分段、计算逾期天数与风险等级；看板、清单和导出共用同一套计算结果。</span><span class="en">Imported lines are cleaned, bucketed against the cutoff date, and scored for overdue days and risk. Dashboard, lists and exports all read the same computed result.</span></p>
+      </article>
+      <article class="card">
+        <div class="num">03</div>
+        <h3><span class="zh">结果</span><span class="en">Outcome</span></h3>
+        <p><span class="zh">111 行样例三方一致：Odoo 内计算结果、openpyxl 独立重算、预期值全部吻合；216 项验证通过、0 失败。</span><span class="en">111 sample lines agree three ways: Odoo's computed values, an independent openpyxl recalculation and the expected values. 216 checks pass, 0 fail.</span></p>
+      </article>
+    </div>
+    <div class="insight">
+      <span class="zh">一份数据，三种出口：看板、清单、报告。</span><span class="en">One dataset, three outputs: dashboard, list, report.</span>
+      <span><span class="zh">计算只做一次，展示和导出都引用同一结果，避免口径分裂。</span><span class="en">Compute once; display and export reference the same result, so definitions cannot drift.</span></span>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="workflow">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow"><span class="zh">处理链路</span><span class="en">Processing chain</span></p>
+      <h2><span class="zh">从 Excel 到报告，六步</span><span class="en">Six steps from Excel to report</span></h2>
+    </div>
+    <div class="steps">
+      <div class="step"><div class="idx">01</div><h3><span class="zh">导入明细</span><span class="en">Import</span></h3><p><span class="zh">xlsx / xls / csv，选择应收或应付。</span><span class="en">xlsx / xls / csv, tagged as receivable or payable.</span></p></div>
+      <div class="step"><div class="idx">02</div><h3><span class="zh">识别与清洗</span><span class="en">Detect and clean</span></h3><p><span class="zh">自动探测标题行，清洗日期与金额，推算到期日。</span><span class="en">Detect the header row, clean dates and amounts, derive due dates.</span></p></div>
+      <div class="step"><div class="idx">03</div><h3><span class="zh">账龄分段</span><span class="en">Bucket</span></h3><p><span class="zh">按“截止日 − 到期日”落入五段账龄。</span><span class="en">Bucket by cutoff date minus due date into five ranges.</span></p></div>
+      <div class="step"><div class="idx">04</div><h3><span class="zh">风险分级</span><span class="en">Score risk</span></h3><p><span class="zh">大额逾期与超长逾期分别标记高、中风险。</span><span class="en">Large and long-overdue balances are flagged high or watch.</span></p></div>
+      <div class="step"><div class="idx">05</div><h3><span class="zh">看板与清单</span><span class="en">View</span></h3><p><span class="zh">KPI、图表、TOP10 与逐行风险清单。</span><span class="en">KPIs, charts, top 10 and a line-level risk list.</span></p></div>
+      <div class="step"><div class="idx">06</div><h3><span class="zh">导出报告</span><span class="en">Export</span></h3><p><span class="zh">Excel 五表、风险清单、两页 PDF。</span><span class="en">Five-sheet Excel, risk list and a two-page PDF.</span></p></div>
+    </div>
+  </div>
+</section>
+
+<section id="dashboard">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow"><span class="zh">可视化看板</span><span class="en">Dashboard</span></p>
+      <h2><span class="zh">一屏看清账龄结构与逾期风险</span><span class="en">Aging structure and overdue risk on one screen</span></h2>
+      <p><span class="zh">OWL 2 组件 + Chart.js 4：5 个 KPI、账龄分布、逾期占比、TOP10 欠款客户、风险清单与账龄构成。</span><span class="en">OWL 2 components with Chart.js 4: five KPIs, aging distribution, overdue share, top 10 customers, risk list and aging composition.</span></p>
+    </div>
+    <figure class="dashboard-frame">
+      <img src="assets/02_dashboard.png" alt="账龄分析看板" width="1440" height="1630">
+      <figcaption>
+        <span class="zh">账龄分析看板：应收、应付、逾期与高风险在同一条数据链上计算。</span>
+        <span class="en">Aging dashboard: receivables, payables, overdue and high risk computed from the same data chain.</span>
+      </figcaption>
+    </figure>
+  </div>
+</section>
+
+<section class="band" id="features">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow"><span class="zh">功能范围</span><span class="en">Scope</span></p>
+      <h2><span class="zh">分析、清单、导出，共用一套口径</span><span class="en">Analysis, lists and exports share one definition</span></h2>
+    </div>
+    <div class="grid-6">
+      <article class="card">
+        <div class="num">01</div>
+        <h3><span class="zh">中文表头自动识别</span><span class="en">Header detection</span></h3>
+        <p><span class="zh">xlsx / xls / csv 自动探测标题行，日期与金额清洗，缺到期日时自动推算，并自动创建往来单位。</span><span class="en">xlsx / xls / csv with automatic header detection, date and amount cleaning, due-date derivation and automatic partner creation.</span></p>
+      </article>
+      <article class="card">
+        <div class="num">02</div>
+        <h3><span class="zh">五段账龄</span><span class="en">Five aging buckets</span></h3>
+        <p><span class="zh">未到期、0–30、30–60、60–90、90 天以上，按截止日与到期日之差计算。</span><span class="en">Not due, 0–30, 30–60, 60–90 and 90+ days, computed from cutoff date minus due date.</span></p>
+      </article>
+      <article class="card">
+        <div class="num">03</div>
+        <h3><span class="zh">逾期风险清单</span><span class="en">Overdue risk list</span></h3>
+        <p><span class="zh">大额逾期 ≥ 10 万标红为高风险；逾期超过 90 天或余额 ≥ 5 万标黄为关注。</span><span class="en">Overdue ≥ 100k is high risk in red; over 90 days or balance ≥ 50k is watch in amber.</span></p>
+      </article>
+      <article class="card">
+        <div class="num">04</div>
+        <h3><span class="zh">可视化看板</span><span class="en">Dashboard</span></h3>
+        <p><span class="zh">OWL 2 + Chart.js 4，含 KPI、账龄分布、逾期占比、TOP10 欠款客户和风险清单。</span><span class="en">OWL 2 and Chart.js 4 with KPIs, aging distribution, overdue share, top 10 debtors and the risk list.</span></p>
+      </article>
+      <article class="card">
+        <div class="num">05</div>
+        <h3><span class="zh">多格式导出</span><span class="en">Multiple exports</span></h3>
+        <p><span class="zh">Excel 五表报告、风险清单 Excel、A4 两页 PDF，以及可复用的导入模板。</span><span class="en">A five-sheet Excel report, a risk-list Excel, a two-page A4 PDF and a reusable import template.</span></p>
+      </article>
+      <article class="card">
+        <div class="num">06</div>
+        <h3><span class="zh">参数与留痕</span><span class="en">Settings and traceability</span></h3>
+        <p><span class="zh">大额阈值可配置；批次记录源文件、导入人、时间与汇总，便于回溯。</span><span class="en">The large-amount threshold is configurable; each batch records the source file, importer, time and summary.</span></p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="data">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow"><span class="zh">样例数据</span><span class="en">Sample data</span></p>
+      <h2><span class="zh">应收 63 行、应付 48 行，逐行可查</span><span class="en">63 receivable and 48 payable lines, every one traceable</span></h2>
+      <p><span class="zh">下列数字来自实际导入后的 Odoo 计算，并与独立重算结果一致。</span><span class="en">These figures come from Odoo after the actual import and match an independent recalculation.</span></p>
+    </div>
+    <div class="data-grid">
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col"><span class="zh">指标</span><span class="en">Metric</span></th>
+              <th scope="col" class="num"><span class="zh">应收</span><span class="en">AR</span></th>
+              <th scope="col" class="num"><span class="zh">应付</span><span class="en">AP</span></th>
+              <th scope="col" class="num"><span class="zh">合计</span><span class="en">Total</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="zh">明细行数</span><span class="en">Lines</span></td><td class="num">63</td><td class="num">48</td><td class="num">111</td></tr>
+            <tr><td><span class="zh">余额合计</span><span class="en">Balance</span></td><td class="num">¥8,130,770</td><td class="num">¥5,344,330</td><td class="num">¥13,475,100</td></tr>
+            <tr><td><span class="zh">逾期余额</span><span class="en">Overdue</span></td><td class="num">¥5,663,170</td><td class="num">¥3,759,330</td><td class="num">¥9,422,500</td></tr>
+            <tr><td><span class="zh">逾期率</span><span class="en">Overdue rate</span></td><td class="num">69.65%</td><td class="num">70.34%</td><td class="num">69.93%</td></tr>
+            <tr><td><span class="zh">高风险行</span><span class="en">High-risk lines</span></td><td class="num">20</td><td class="num">18</td><td class="num">38</td></tr>
+            <tr><td><span class="zh">高风险金额</span><span class="en">High-risk amount</span></td><td class="num">—</td><td class="num">—</td><td class="num">¥6,357,255</td></tr>
+            <tr><td><span class="zh">往来单位</span><span class="en">Partners</span></td><td class="num">—</td><td class="num">—</td><td class="num">32</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col"><span class="zh">账龄段</span><span class="en">Bucket</span></th>
+                <th scope="col" class="num"><span class="zh">应收</span><span class="en">AR</span></th>
+                <th scope="col" class="num"><span class="zh">应付</span><span class="en">AP</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td><span class="zh">未到期</span><span class="en">Not due</span></td><td class="num">14</td><td class="num">11</td></tr>
+              <tr><td><span class="zh">0–30 天</span><span class="en">0–30 days</span></td><td class="num">14</td><td class="num">11</td></tr>
+              <tr><td><span class="zh">30–60 天</span><span class="en">30–60 days</span></td><td class="num">11</td><td class="num">7</td></tr>
+              <tr><td><span class="zh">60–90 天</span><span class="en">60–90 days</span></td><td class="num">14</td><td class="num">11</td></tr>
+              <tr><td><span class="zh">90 天以上</span><span class="en">90+ days</span></td><td class="num">10</td><td class="num">8</td></tr>
+            </tbody>
+            <tfoot>
+              <tr><td><span class="zh">合计</span><span class="en">Total</span></td><td class="num">63</td><td class="num">48</td></tr>
+            </tfoot>
+          </table>
+        </div>
+        <div class="risk-legend">
+          <div><span class="dot red" aria-hidden="true"></span><div><b><span class="zh">高风险</span><span class="en">High risk</span></b><span><span class="zh">大额逾期 ≥ ¥100,000</span><span class="en">Large overdue ≥ ¥100,000</span></span></div></div>
+          <div><span class="dot amber" aria-hidden="true"></span><div><b><span class="zh">关注</span><span class="en">Watch</span></b><span><span class="zh">逾期 &gt; 90 天，或余额 ≥ ¥50,000</span><span class="en">Overdue &gt; 90 days, or balance ≥ ¥50,000</span></span></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="stat-lines" style="margin-top:40px">
+      <div class="stat-line"><span><span class="zh">独立重算验证</span><span class="en">Independent recalculation</span></span><b><span class="sev ok">216 PASS / 0 FAIL</span></b></div>
+      <div class="stat-line"><span><span class="zh">端到端断言</span><span class="en">End-to-end assertions</span></span><b>178 / 178</b></div>
+      <div class="stat-line"><span><span class="zh">界面截图核验</span><span class="en">UI screenshots verified</span></span><b>9 / 9</b></div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="screenshots">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow"><span class="zh">系统截图</span><span class="en">System screenshots</span></p>
+      <h2><span class="zh">实际运行的 Odoo 界面</span><span class="en">The Odoo screens, as they run</span></h2>
+      <p><span class="zh">点击任意截图可放大查看。</span><span class="en">Click any screenshot to enlarge.</span></p>
+    </div>
+    <div class="gallery">
+      <figure class="shot"><img src="assets/02_dashboard.png" alt="账龄分析看板" data-lightbox tabindex="0" role="button"><figcaption><span class="zh">01 · 账龄分析看板：KPI、图表与风险清单</span><span class="en">01 · Aging dashboard: KPIs, charts and risk list</span></figcaption></figure>
+      <figure class="shot"><img src="assets/03_dashboard_payable.png" alt="应付看板" data-lightbox tabindex="0" role="button"><figcaption><span class="zh">02 · 看板筛选“应付”</span><span class="en">02 · Dashboard filtered to payables</span></figcaption></figure>
+      <figure class="shot"><img src="assets/01_login.png" alt="Odoo 登录页" data-lightbox tabindex="0" role="button"><figcaption><span class="zh">03 · 登录本地 Odoo 实例</span><span class="en">03 · Sign in to the local Odoo instance</span></figcaption></figure>
+      <figure class="shot"><img src="assets/04_report_form.png" alt="账龄报表表单" data-lightbox tabindex="0" role="button"><figcaption><span class="zh">04 · 账龄报表表单：批次汇总</span><span class="en">04 · Aging report form: batch summary</span></figcaption></figure>
+      <figure class="shot"><img src="assets/05_report_list.png" alt="账龄报表列表" data-lightbox tabindex="0" role="button"><figcaption><span class="zh">05 · 应收账龄报表列表</span><span class="en">05 · Receivable aging report list</span></figcaption></figure>
+      <figure class="shot"><img src="assets/06_risk_list.png" alt="逾期风险清单" data-lightbox tabindex="0" role="button"><figcaption><span class="zh">06 · 逾期风险清单：高风险与关注</span><span class="en">06 · Overdue risk list: high risk and watch</span></figcaption></figure>
+      <figure class="shot"><img src="assets/07_import_wizard.png" alt="Excel 导入向导" data-lightbox tabindex="0" role="button"><figcaption><span class="zh">07 · Excel 导入向导</span><span class="en">07 · Excel import wizard</span></figcaption></figure>
+      <figure class="shot"><img src="assets/08_settings.png" alt="参数设置" data-lightbox tabindex="0" role="button"><figcaption><span class="zh">08 · 参数设置：大额阈值</span><span class="en">08 · Settings: large-amount threshold</span></figcaption></figure>
+      <figure class="shot"><img src="assets/09_line_list.png" alt="全部账龄明细" data-lightbox tabindex="0" role="button"><figcaption><span class="zh">09 · 全部账龄明细</span><span class="en">09 · All aging lines</span></figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section id="downloads">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow"><span class="zh">导出文件</span><span class="en">Exports</span></p>
+      <h2><span class="zh">直接下载样例输出</span><span class="en">Download the sample outputs</span></h2>
+      <p><span class="zh">以下文件由样例批次实际导出，可用于核对版式与字段。</span><span class="en">These files were exported from the sample batch, for checking layout and fields.</span></p>
+    </div>
+    <div class="doc-list">
+      <article class="doc">
+        <span class="kind">PDF · 101 KB</span>
+        <h3><span class="zh">账龄分析报告</span><span class="en">Aging report</span></h3>
+        <p><span class="zh">A4 两页，含汇总、账龄分布与风险清单。</span><span class="en">Two A4 pages with summary, aging distribution and risk list.</span></p>
+        <a href="assets/aging_report_1_2026-10-19.pdf" target="_blank" rel="noopener"><span class="zh">打开 PDF</span><span class="en">Open PDF</span><span aria-hidden="true">→</span></a>
+      </article>
+      <article class="doc">
+        <span class="kind">XLSX · 21 KB</span>
+        <h3><span class="zh">Excel 分析报告</span><span class="en">Excel analysis report</span></h3>
+        <p><span class="zh">五个工作表：汇总、账龄、明细、风险与参数。</span><span class="en">Five sheets: summary, aging, lines, risk and settings.</span></p>
+        <a href="assets/aging_report_export_1.xlsx" download><span class="zh">下载 Excel</span><span class="en">Download Excel</span><span aria-hidden="true">→</span></a>
+      </article>
+      <article class="doc">
+        <span class="kind">XLSX · 9 KB</span>
+        <h3><span class="zh">风险清单</span><span class="en">Risk list</span></h3>
+        <p><span class="zh">仅高风险与关注行，便于直接跟进。</span><span class="en">High-risk and watch lines only, ready for follow-up.</span></p>
+        <a href="assets/aging_risk_export_1.xlsx" download><span class="zh">下载 Excel</span><span class="en">Download Excel</span><span aria-hidden="true">→</span></a>
+      </article>
+    </div>
+    <div class="scope" style="margin-top:32px">
+      <h2><span class="zh">真实性边界</span><span class="en">Scope and honesty</span></h2>
+      <p><span class="zh">这是 Odoo 19 上的个人实践项目，用于验证应收应付账龄分析的实施思路；不是生产上线，也不是真实客户项目。</span><span class="en">This is a personal practice project on Odoo 19, validating an AR/AP aging implementation approach. It is not a production rollout and not a real client project.</span></p>
+      <p><span class="zh">往来单位、金额、发票号与日期均为合成数据；演示账号与本地数据库口令仅用于本机环境。</span><span class="en">Partners, amounts, invoice numbers and dates are synthetic. The demo login and local database credentials are for the local machine only.</span></p>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <div class="foot-brand"><span class="mark" aria-hidden="true"></span><span class="zh">账龄分析</span><span class="en">Aging Analysis</span></div>
+        <p><span class="zh">Odoo 19 自定义模块 aging_report，面向应收应付的账龄分段、逾期风险与报告导出。</span><span class="en">Custom Odoo 19 module aging_report for AR/AP aging, overdue risk and report exports.</span></p>
+        <p><span class="zh">本机演示：<a href="http://127.0.0.1:8069/web/login?db=practice">127.0.0.1:8069</a> · admin / admin</span><span class="en">Local demo: <a href="http://127.0.0.1:8069/web/login?db=practice">127.0.0.1:8069</a> · admin / admin</span></p>
+      </div>
+      <div>
+        <h4><span class="zh">页面</span><span class="en">Sections</span></h4>
+        <p><a href="#dashboard"><span class="zh">可视化看板</span><span class="en">Dashboard</span></a></p>
+        <p><a href="#data"><span class="zh">样例数据</span><span class="en">Sample data</span></a></p>
+        <p><a href="#screenshots"><span class="zh">系统截图</span><span class="en">Screenshots</span></a></p>
+        <p><a href="#downloads"><span class="zh">导出文件</span><span class="en">Exports</span></a></p>
+      </div>
+      <div>
+        <h4><span class="zh">技术栈</span><span class="en">Stack</span></h4>
+        <p>Odoo 19.0 Community</p>
+        <p>Python 3.12 · PostgreSQL 16</p>
+        <p>OWL 2 · Chart.js 4 · openpyxl</p>
+        <p><span class="zh">Vibe Coding（AI 辅助开发）</span><span class="en">Vibe Coding (AI-assisted development)</span></p>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span><span class="zh">© 2026 郑天皓 · 个人实践项目</span><span class="en">© 2026 Zheng Tianhao · Personal practice project</span></span>
+      <span><span class="zh">样例数据均为合成数据</span><span class="en">All sample data is synthetic</span></span>
+    </div>
+  </div>
+</footer>
+
+<div class="lightbox" id="lightbox" hidden role="dialog" aria-modal="true" aria-label="截图预览 / Screenshot preview">
+  <button class="lb-close" type="button" aria-label="关闭 / Close">×</button>
+  <figure style="margin:0">
+    <img id="lb-img" alt="">
+    <figcaption id="lb-cap"></figcaption>
+  </figure>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="assets/demo-data.js"></script>
+<script src="assets/aging-engine.js"></script>
+<script>
+(function () {
+  var root = document.documentElement;
+  var KEY = 'aging-site-lang';
+  var TITLES = {
+    zh: '账龄分析 · Odoo 19',
+    en: 'Aging Analysis · Odoo 19'
+  };
+
+  function setLang(lang, persist) {
+    root.setAttribute('data-lang', lang);
+    root.setAttribute('lang', lang === 'zh' ? 'zh-CN' : 'en');
+    document.title = TITLES[lang] || TITLES.zh;
+    document.querySelectorAll('.lang button').forEach(function (btn) {
+      var on = btn.getAttribute('data-lang') === lang;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    if (persist) {
+      try { localStorage.setItem(KEY, lang); } catch (e) {}
+    }
+    try {
+      document.dispatchEvent(new CustomEvent('langchange', { detail: { lang: lang } }));
+    } catch (e) {}
+  }
+
+  document.querySelectorAll('.lang button').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      setLang(btn.getAttribute('data-lang'), true);
+    });
+  });
+
+  var saved = null;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  setLang(saved === 'en' ? 'en' : 'zh', false);
+
+  var box = document.getElementById('lightbox');
+  var img = document.getElementById('lb-img');
+  var cap = document.getElementById('lb-cap');
+  var lastFocus = null;
+
+  function openBox(source, caption) {
+    lastFocus = document.activeElement;
+    img.src = source;
+    img.alt = caption;
+    cap.textContent = caption;
+    box.hidden = false;
+    document.body.style.overflow = 'hidden';
+    box.querySelector('.lb-close').focus();
+  }
+
+  function closeBox() {
+    box.hidden = true;
+    img.src = '';
+    document.body.style.overflow = '';
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+
+  document.querySelectorAll('[data-lightbox]').forEach(function (el) {
+    var figure = el.closest('figure');
+    var captionEl = figure ? figure.querySelector('figcaption') : null;
+    function getCaption() {
+      return captionEl ? captionEl.innerText.replace(/\s+/g, ' ').trim() : (el.alt || '');
+    }
+    el.addEventListener('click', function () { openBox(el.src, getCaption()); });
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openBox(el.src, getCaption());
+      }
+    });
+  });
+
+  box.addEventListener('click', function (e) {
+    if (e.target === box || e.target.closest('.lb-close')) closeBox();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !box.hidden) closeBox();
+  });
+})();
+</script>
+<script>
+(function () {
+  'use strict';
+  var E = window.AgingEngine;
+  if (!E) return;
+
+  var app = document.getElementById('aging-app');
+  if (!app) return;
+
+  var BUCKET_EN = {
+    not_due: 'Not due', d0_30: '0–30 days', d30_60: '30–60 days',
+    d60_90: '60–90 days', d90_plus: '90+ days'
+  };
+  var RISK_EN = { high: 'High risk', watch: 'Watch', normal: 'Normal' };
+  var RISK_RANK = { high: 0, watch: 1, normal: 2 };
+
+  var el = {
+    meta: document.getElementById('a-meta'),
+    date: document.getElementById('a-date'),
+    threshold: document.getElementById('a-threshold'),
+    type: document.getElementById('a-type'),
+    kpis: document.getElementById('a-kpis'),
+    bars: document.getElementById('a-bars'),
+    bucketTotal: document.getElementById('a-bucket-total'),
+    risk: document.getElementById('a-risk'),
+    riskTotal: document.getElementById('a-risk-total'),
+    filters: document.getElementById('a-filters'),
+    search: document.getElementById('a-search'),
+    tbody: document.getElementById('a-tbody'),
+    tableWrap: document.getElementById('a-table-wrap'),
+    empty: document.getElementById('a-empty'),
+    message: document.getElementById('a-message'),
+    footNote: document.getElementById('a-foot-note'),
+    display: document.getElementById('a-display'),
+    file: document.getElementById('a-file'),
+    importBtn: document.getElementById('a-import-btn'),
+    sampleAr: document.getElementById('a-sample-ar'),
+    sampleAp: document.getElementById('a-sample-ap'),
+    clearBtn: document.getElementById('a-clear'),
+    exportBtn: document.getElementById('a-export'),
+    template: document.getElementById('a-template')
+  };
+
+  var state = {
+    reportType: 'receivable',
+    rows: [],
+    report: null,
+    parseInfo: null,
+    filter: 'all',
+    query: '',
+    sourceKind: '',
+    fileName: '',
+    reportDate: '2026-10-19',
+    threshold: 100000
+  };
+  var messageTimer = null;
+
+  function lang() {
+    return document.documentElement.getAttribute('data-lang') === 'en' ? 'en' : 'zh';
+  }
+  function L(zh, en) {
+    return lang() === 'en' ? en : zh;
+  }
+  function bucketLabel(key) {
+    return lang() === 'en' ? (BUCKET_EN[key] || key) : (E.BUCKET_LABELS[key] || key);
+  }
+  function riskLabel(key) {
+    return lang() === 'en' ? (RISK_EN[key] || key) : (E.RISK_LABELS[key] || key);
+  }
+  function money0(value) {
+    return '¥' + Math.round(Number(value || 0)).toLocaleString('en-US');
+  }
+  function money2(value) {
+    return '¥' + Number(value || 0).toLocaleString('en-US', {
+      minimumFractionDigits: 2, maximumFractionDigits: 2
+    });
+  }
+  function todayStamp() {
+    var now = new Date();
+    return now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') +
+      String(now.getDate()).padStart(2, '0');
+  }
+  function sourceLabel() {
+    if (state.sourceKind === 'sample') {
+      return state.reportType === 'payable'
+        ? L('内置应付样例', 'Built-in AP sample')
+        : L('内置应收样例', 'Built-in AR sample');
+    }
+    if (state.sourceKind === 'file') return state.fileName || L('导入文件', 'Imported file');
+    return '';
+  }
+
+  function setData(parsed, type, kind, fileName) {
+    state.rows = parsed.rows;
+    state.parseInfo = parsed;
+    state.reportType = type;
+    state.sourceKind = kind;
+    state.fileName = fileName || '';
+    state.filter = 'all';
+    state.query = '';
+    el.search.value = '';
+    analyzeNow();
+  }
+
+  function analyzeNow() {
+    if (!state.rows.length) {
+      state.report = null;
+      render();
+      return;
+    }
+    var cutoff = E.toDate(el.date.value);
+    if (!cutoff) {
+      state.report = null;
+      render();
+      showMessage('error', L('请选择有效的账龄截止日。', 'Choose a valid aging cutoff date.'));
+      return;
+    }
+    var threshold = Number(el.threshold.value);
+    if (!isFinite(threshold) || threshold <= 0) threshold = E.DEFAULT_HIGH_RISK_AMOUNT;
+    state.reportDate = E.ymd(cutoff);
+    state.threshold = threshold;
+    try {
+      state.report = E.analyze(state.rows, cutoff, threshold);
+      render();
+    } catch (error) {
+      state.report = null;
+      render();
+      showMessage('error', error.message || String(error));
+    }
+  }
+
+  function render() {
+    renderControls();
+    renderMeta();
+    renderKpis();
+    renderBars();
+    renderRisk();
+    renderFilters();
+    renderTable();
+    renderFoot();
+  }
+
+  function renderControls() {
+    el.type.querySelectorAll('button[data-type]').forEach(function (button) {
+      button.classList.toggle('active', button.getAttribute('data-type') === state.reportType);
+    });
+    if (document.activeElement !== el.date) el.date.value = state.reportDate;
+    if (document.activeElement !== el.threshold) el.threshold.value = state.threshold;
+  }
+
+  function renderMeta() {
+    if (!state.report) {
+      el.meta.textContent = L('尚未载入数据', 'No data loaded');
+      return;
+    }
+    var totals = state.report.totals;
+    el.meta.textContent = sourceLabel() + ' · ' + totals.count +
+      L(' 行 · 截止 ', ' lines · cutoff ') + state.reportDate +
+      L(' · 阈值 ', ' · threshold ') + money0(state.threshold);
+  }
+
+  function renderKpis() {
+    var totals = state.report ? state.report.totals : null;
+    var items = [
+      { label: L('明细行数', 'Lines'), value: totals ? String(totals.count) : '0', tone: '' },
+      {
+        label: state.reportType === 'payable' ? L('应付余额', 'Payable balance') : L('应收余额', 'Receivable balance'),
+        value: money0(totals ? totals.balance : 0), tone: ''
+      },
+      { label: L('逾期余额', 'Overdue balance'), value: money0(totals ? totals.overdue_balance : 0), tone: 'overdue' },
+      { label: L('逾期率', 'Overdue rate'), value: (totals ? totals.overdue_rate : 0).toFixed(2) + '%', tone: 'overdue' },
+      { label: L('高风险行', 'High-risk lines'), value: totals ? String(totals.high_count) : '0', tone: 'high' }
+    ];
+    el.kpis.textContent = '';
+    items.forEach(function (item) {
+      var box = document.createElement('div');
+      box.className = 'app-kpi' + (item.tone ? ' ' + item.tone : '');
+      var value = document.createElement('b');
+      value.textContent = item.value;
+      var label = document.createElement('span');
+      label.textContent = item.label;
+      box.appendChild(value);
+      box.appendChild(label);
+      el.kpis.appendChild(box);
+    });
+  }
+
+  function renderBars() {
+    var totals = state.report ? state.report.totals : null;
+    var counts = totals ? totals.bucket_counts : {};
+    var balances = totals ? totals.bucket_balances : {};
+    var max = 0;
+    E.BUCKETS.forEach(function (bucket) {
+      max = Math.max(max, balances[bucket.key] || 0);
+    });
+    el.bars.textContent = '';
+    E.BUCKETS.forEach(function (bucket) {
+      var balance = balances[bucket.key] || 0;
+      var count = counts[bucket.key] || 0;
+      var row = document.createElement('div');
+      row.className = 'bucket-row';
+
+      var label = document.createElement('div');
+      label.className = 'bucket-label';
+      var name = document.createElement('span');
+      name.textContent = bucketLabel(bucket.key);
+      var small = document.createElement('small');
+      small.textContent = count;
+      label.appendChild(name);
+      label.appendChild(small);
+
+      var track = document.createElement('div');
+      track.className = 'bar-track';
+      var fill = document.createElement('div');
+      fill.className = 'bar-fill b-' + bucket.key;
+      fill.style.width = (max > 0 ? (balance / max * 100) : 0) + '%';
+      track.appendChild(fill);
+
+      var amount = document.createElement('div');
+      amount.className = 'bucket-amt';
+      amount.textContent = money0(balance);
+
+      row.appendChild(label);
+      row.appendChild(track);
+      row.appendChild(amount);
+      el.bars.appendChild(row);
+    });
+    el.bucketTotal.textContent = L(
+      '合计 ' + (totals ? totals.count : 0) + ' 行',
+      '' + (totals ? totals.count : 0) + ' lines');
+  }
+
+  function riskAmounts() {
+    var out = { high: 0, watch: 0, normal: 0 };
+    if (!state.report) return out;
+    state.report.lines.forEach(function (line) {
+      out[line.risk_level] += Number(line.balance || 0);
+    });
+    return out;
+  }
+
+  function renderRisk() {
+    var totals = state.report ? state.report.totals : null;
+    var amounts = riskAmounts();
+    var specs = [
+      { key: 'high', dot: 'red', count: totals ? totals.high_count : 0 },
+      { key: 'watch', dot: 'amber', count: totals ? totals.watch_count : 0 },
+      { key: 'normal', dot: 'green', count: totals ? totals.normal_count : 0 }
+    ];
+    el.risk.textContent = '';
+    specs.forEach(function (spec) {
+      var box = document.createElement('div');
+      box.className = 'risk-item ' + spec.key;
+      var label = document.createElement('div');
+      label.className = 'r-label';
+      var dot = document.createElement('span');
+      dot.className = 'dot ' + spec.dot;
+      var text = document.createElement('span');
+      text.textContent = riskLabel(spec.key);
+      label.appendChild(dot);
+      label.appendChild(text);
+      var count = document.createElement('b');
+      count.textContent = spec.count;
+      var amount = document.createElement('span');
+      amount.className = 'r-amt';
+      amount.textContent = money0(amounts[spec.key]);
+      box.appendChild(label);
+      box.appendChild(count);
+      box.appendChild(amount);
+      el.risk.appendChild(box);
+    });
+    el.riskTotal.textContent = L(
+      '共 ' + (totals ? totals.count : 0) + ' 行',
+      '' + (totals ? totals.count : 0) + ' lines');
+  }
+
+  function renderFilters() {
+    var totals = state.report ? state.report.totals : null;
+    var specs = [
+      { key: 'all', label: L('全部', 'All'), count: totals ? totals.count : 0 },
+      { key: 'high', label: riskLabel('high'), count: totals ? totals.high_count : 0 },
+      { key: 'watch', label: riskLabel('watch'), count: totals ? totals.watch_count : 0 },
+      { key: 'normal', label: riskLabel('normal'), count: totals ? totals.normal_count : 0 }
+    ];
+    el.filters.textContent = '';
+    specs.forEach(function (spec) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.setAttribute('data-filter', spec.key);
+      button.classList.toggle('active', state.filter === spec.key);
+      button.textContent = spec.label + ' ';
+      var count = document.createElement('span');
+      count.textContent = spec.count;
+      button.appendChild(count);
+      el.filters.appendChild(button);
+    });
+  }
+
+  el.filters.addEventListener('click', function (event) {
+    var button = event.target.closest('button[data-filter]');
+    if (!button) return;
+    state.filter = button.getAttribute('data-filter');
+    renderFilters();
+    renderTable();
+    renderFoot();
+  });
+
+  el.search.addEventListener('input', function () {
+    state.query = el.search.value;
+    renderTable();
+    renderFoot();
+  });
+
+  function sortedLines() {
+    if (!state.report) return [];
+    return state.report.lines.slice().sort(function (a, b) {
+      if (RISK_RANK[a.risk_level] !== RISK_RANK[b.risk_level]) {
+        return RISK_RANK[a.risk_level] - RISK_RANK[b.risk_level];
+      }
+      if (b.days_overdue !== a.days_overdue) return b.days_overdue - a.days_overdue;
+      return b.balance - a.balance;
+    });
+  }
+
+  function filteredLines() {
+    var query = state.query.trim().toLowerCase();
+    return sortedLines().filter(function (line) {
+      if (state.filter !== 'all' && line.risk_level !== state.filter) return false;
+      if (!query) return true;
+      return [line.partner_name, line.partner_ref, line.doc_no, line.salesperson, line.remark]
+        .join(' ').toLowerCase().indexOf(query) !== -1;
+    });
+  }
+
+  function cell(text, className) {
+    var td = document.createElement('td');
+    if (className) td.className = className;
+    td.textContent = text;
+    return td;
+  }
+
+  function renderTable() {
+    el.search.placeholder = L('搜索往来单位 / 单据号', 'Search partner / document');
+    var hasRows = !!(state.report && state.report.lines.length);
+    el.tableWrap.hidden = !hasRows;
+    el.empty.hidden = hasRows;
+    el.tbody.textContent = '';
+    if (!hasRows) return;
+
+    var items = filteredLines();
+    items.slice(0, 200).forEach(function (line) {
+      var tr = document.createElement('tr');
+      if (line.remark) tr.title = line.remark;
+
+      var riskCell = document.createElement('td');
+      var badge = document.createElement('span');
+      badge.className = 'risk-badge ' + line.risk_level;
+      badge.textContent = riskLabel(line.risk_level);
+      riskCell.appendChild(badge);
+      tr.appendChild(riskCell);
+
+      var partnerCell = document.createElement('td');
+      partnerCell.className = 'partner';
+      var name = document.createElement('b');
+      name.textContent = line.partner_name || '—';
+      partnerCell.appendChild(name);
+      if (line.partner_ref) {
+        var ref = document.createElement('small');
+        ref.textContent = line.partner_ref;
+        partnerCell.appendChild(ref);
+      }
+      tr.appendChild(partnerCell);
+
+      tr.appendChild(cell(line.doc_no || '—'));
+      tr.appendChild(cell(line.due_date ? E.ymd(line.due_date) : '—'));
+
+      var days = Number(line.days_overdue || 0);
+      var daysCell = document.createElement('td');
+      var daysText = document.createElement('span');
+      daysText.className = days > 0 ? 'overdue' : 'notdue';
+      daysText.textContent = days > 0 ? '+' + days : String(days);
+      daysCell.appendChild(daysText);
+      tr.appendChild(daysCell);
+
+      tr.appendChild(cell(bucketLabel(line.bucket)));
+      tr.appendChild(cell(money2(line.balance), 'num'));
+      tr.appendChild(cell(line.salesperson || '—'));
+
+      el.tbody.appendChild(tr);
+    });
+
+    if (!items.length) {
+      var tr = document.createElement('tr');
+      var td = document.createElement('td');
+      td.colSpan = 8;
+      td.className = 'no-match';
+      td.textContent = L('没有匹配当前筛选的行', 'No rows match the current filter');
+      tr.appendChild(td);
+      el.tbody.appendChild(tr);
+    }
+  }
+
+  function renderFoot() {
+    var parts = [];
+    if (state.parseInfo) {
+      var info = state.parseInfo;
+      parts.push(L(
+        '表头：第 ' + info.header_row + ' 行' + (info.header_auto_detected ? '（自动识别）' : ''),
+        'Header: row ' + info.header_row + (info.header_auto_detected ? ' (auto-detected)' : '')));
+      if (info.skipped_zero) {
+        parts.push(L('跳过零余额 ' + info.skipped_zero + ' 行', 'Skipped ' + info.skipped_zero + ' zero-balance rows'));
+      }
+      if (info.errors.length) {
+        parts.push(L('解析错误 ' + info.errors.length + ' 行', info.errors.length + ' parse errors'));
+      }
+    }
+    parts.push(L(
+      '数据不离开本页；Excel 解析由 SheetJS 提供（需联网），CSV 可离线使用。',
+      'Data stays in this page; Excel parsing uses SheetJS (internet required), CSV works offline.'));
+    el.footNote.textContent = parts.join(' · ');
+
+    var items = filteredLines();
+    var shown = Math.min(items.length, 200);
+    el.display.textContent = items.length > shown
+      ? L('显示前 ' + shown + ' / ' + items.length + ' 行', 'Showing ' + shown + ' of ' + items.length + ' rows')
+      : L('共 ' + items.length + ' 行', items.length + ' rows');
+  }
+
+  function showMessage(kind, text) {
+    clearTimeout(messageTimer);
+    el.message.hidden = false;
+    el.message.className = 'app-msg ' + kind;
+    el.message.textContent = text;
+    if (kind === 'ok') {
+      messageTimer = setTimeout(function () { el.message.hidden = true; }, 6000);
+    }
+  }
+
+  function hideMessage() {
+    clearTimeout(messageTimer);
+    el.message.hidden = true;
+  }
+
+  function sampleMatrix(sample) {
+    var mapping = E.mapHeaderRow(sample.headers);
+    var fields = {};
+    Object.keys(mapping).forEach(function (field) { fields[mapping[field]] = field; });
+    var matrix = [sample.headers.slice()];
+    sample.rows.forEach(function (row) {
+      matrix.push(sample.headers.map(function (header, index) {
+        var field = fields[index];
+        return field && row[field] !== undefined ? row[field] : '';
+      }));
+    });
+    return matrix;
+  }
+
+  function loadSample(type) {
+    var sample = window.AGING_SAMPLES && window.AGING_SAMPLES[type];
+    if (!sample) {
+      showMessage('error', L('内置样例未加载。', 'The built-in sample did not load.'));
+      return;
+    }
+    var parsed;
+    try {
+      parsed = E.parseMatrix(sampleMatrix(sample), {
+        fileType: 'xlsx',
+        sheetName: type === 'payable' ? L('应付样例', 'AP sample') : L('应收样例', 'AR sample')
+      });
+    } catch (error) {
+      showMessage('error', error.message || String(error));
+      return;
+    }
+    hideMessage();
+    if (window.AGING_SAMPLES.reportDate) el.date.value = window.AGING_SAMPLES.reportDate;
+    el.threshold.value = E.DEFAULT_HIGH_RISK_AMOUNT;
+    setData(parsed, type, 'sample', '');
+  }
+
+  function clearAll() {
+    hideMessage();
+    state.rows = [];
+    state.report = null;
+    state.parseInfo = null;
+    state.sourceKind = '';
+    state.fileName = '';
+    state.filter = 'all';
+    state.query = '';
+    el.search.value = '';
+    render();
+  }
+
+  function detectReportType(headers) {
+    var text = (headers || []).join(' ');
+    if (/供应商|应付|采购/.test(text)) return 'payable';
+    if (/客户|应收|销售/.test(text)) return 'receivable';
+    return null;
+  }
+
+  function handleFile(file) {
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      showMessage('error', L('文件超过 8 MB，请拆分后再导入。', 'The file is larger than 8 MB. Split it and import again.'));
+      return;
+    }
+    var ext = (file.name.split('.').pop() || '').toLowerCase();
+    hideMessage();
+    showMessage('ok', L('正在读取 ' + file.name + ' …', 'Reading ' + file.name + ' …'));
+
+    var matrixPromise;
+    if (['xlsx', 'xlsm', 'xls'].indexOf(ext) !== -1) {
+      if (!window.XLSX) {
+        showMessage('error', L(
+          'Excel 解析库未加载（需要联网）。请把文件另存为 CSV 后导入，或检查网络后刷新页面。',
+          'The Excel parser did not load (internet required). Save the file as CSV and import that, or check your connection and reload.'));
+        return;
+      }
+      matrixPromise = file.arrayBuffer().then(function (buffer) {
+        var workbook = XLSX.read(new Uint8Array(buffer), { type: 'array', cellDates: true });
+        var sheet = workbook.Sheets[workbook.SheetNames[0]];
+        if (!sheet) throw new Error(L('工作簿里没有工作表。', 'The workbook has no worksheet.'));
+        return XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: '' });
+      });
+    } else {
+      matrixPromise = file.arrayBuffer().then(function (buffer) {
+        return parseCsv(decodeText(new Uint8Array(buffer)));
+      });
+    }
+
+    matrixPromise.then(function (matrix) {
+      if (!matrix || !matrix.length) throw new Error(L('文件内容为空。', 'The file is empty.'));
+      var parsed = E.parseMatrix(matrix, {
+        fileType: ext === 'csv' || ext === 'txt' ? 'csv' : 'xlsx',
+        sheetName: file.name
+      });
+      var detected = detectReportType(parsed.headers);
+      if (detected) state.reportType = detected;
+      setData(parsed, state.reportType, 'file', file.name);
+      var bits = [L('已导入 ' + parsed.rows.length + ' 行', 'Imported ' + parsed.rows.length + ' lines')];
+      if (parsed.skipped_zero) {
+        bits.push(L('跳过零余额 ' + parsed.skipped_zero + ' 行', 'skipped ' + parsed.skipped_zero + ' zero-balance rows'));
+      }
+      if (parsed.skipped_empty) {
+        bits.push(L('跳过空行 / 合计行 ' + parsed.skipped_empty + ' 行', 'skipped ' + parsed.skipped_empty + ' empty/summary rows'));
+      }
+      if (parsed.errors.length) {
+        bits.push(L('解析错误 ' + parsed.errors.length + ' 行', parsed.errors.length + ' parse errors'));
+      }
+      showMessage('ok', bits.join('，') + '。');
+    }).catch(function (error) {
+      showMessage('error', (error && error.message) ? error.message : String(error));
+    });
+  }
+
+  function decodeText(bytes) {
+    var text = new TextDecoder('utf-8').decode(bytes);
+    if (text.indexOf('�') !== -1) {
+      try {
+        var gbk = new TextDecoder('gbk').decode(bytes);
+        if (gbk.indexOf('�') === -1) return gbk;
+      } catch (error) {}
+    }
+    return text;
+  }
+
+  function parseCsv(text) {
+    text = String(text || '').replace(/^﻿/, '');
+    var delimiter = detectDelimiter(text);
+    var rows = [];
+    var row = [];
+    var field = '';
+    var quoted = false;
+    for (var i = 0; i < text.length; i += 1) {
+      var ch = text.charAt(i);
+      if (quoted) {
+        if (ch === '"') {
+          if (text.charAt(i + 1) === '"') {
+            field += '"';
+            i += 1;
+          } else {
+            quoted = false;
+          }
+        } else {
+          field += ch;
+        }
+      } else if (ch === '"') {
+        quoted = true;
+      } else if (ch === delimiter) {
+        row.push(field);
+        field = '';
+      } else if (ch === '\n') {
+        row.push(field);
+        rows.push(row);
+        row = [];
+        field = '';
+      } else if (ch !== '\r') {
+        field += ch;
+      }
+    }
+    if (field !== '' || row.length) {
+      row.push(field);
+      rows.push(row);
+    }
+    return rows;
+  }
+
+  function detectDelimiter(text) {
+    var line = '';
+    var lines = text.split(/\r?\n/);
+    for (var i = 0; i < lines.length; i += 1) {
+      if (lines[i].trim()) { line = lines[i]; break; }
+    }
+    var candidates = [',', ';', '\t', '|'];
+    var best = ',';
+    var bestCount = -1;
+    candidates.forEach(function (candidate) {
+      var count = 0;
+      var quoted = false;
+      for (var j = 0; j < line.length; j += 1) {
+        var ch = line.charAt(j);
+        if (ch === '"') quoted = !quoted;
+        else if (!quoted && ch === candidate) count += 1;
+      }
+      if (count > bestCount) {
+        bestCount = count;
+        best = candidate;
+      }
+    });
+    return best;
+  }
+
+  function csvLine(values) {
+    return values.map(function (value) {
+      var text = value === null || value === undefined ? '' : String(value);
+      if (/[",\r\n]/.test(text)) return '"' + text.replace(/"/g, '""') + '"';
+      return text;
+    }).join(',');
+  }
+
+  function downloadCsv(filename, lines) {
+    var csv = '﻿' + lines.map(csvLine).join('\r\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function exportResults() {
+    if (!state.report || !state.report.lines.length) {
+      showMessage('error', L('暂无可导出的账龄明细。', 'There are no aging lines to export.'));
+      return;
+    }
+    var en = lang() === 'en';
+    var typeLabel = state.reportType === 'payable'
+      ? L('应付', 'Payable') : L('应收', 'Receivable');
+    var lines = [[
+      en ? 'Report Type' : '报表类型', en ? 'Risk' : '风险等级',
+      en ? 'Partner' : '往来单位', en ? 'Partner Code' : '往来编码',
+      en ? 'Document' : '单据号', en ? 'Document Date' : '单据日期',
+      en ? 'Due Date' : '到期日', en ? 'Days Overdue' : '逾期天数',
+      en ? 'Bucket' : '账龄段', en ? 'Balance' : '余额',
+      en ? 'Owner' : '业务员/采购员', en ? 'Remark' : '备注'
+    ]];
+    sortedLines().forEach(function (line) {
+      lines.push([
+        typeLabel, riskLabel(line.risk_level), line.partner_name, line.partner_ref,
+        line.doc_no, line.doc_date ? E.ymd(line.doc_date) : '',
+        line.due_date ? E.ymd(line.due_date) : '', line.days_overdue,
+        bucketLabel(line.bucket), line.balance, line.salesperson, line.remark
+      ]);
+    });
+    downloadCsv('aging-analysis-' + todayStamp() + '.csv', lines);
+  }
+
+  function downloadTemplate() {
+    var headers = E.TEMPLATE_HEADERS[state.reportType] || E.TEMPLATE_HEADERS.receivable;
+    var rows = state.reportType === 'payable'
+      ? [
+          ['S001', '示例供应商有限公司', 'AP00001', '2026-08-01', '2026-08-31', 120000, 20000, 100000, '张采购', '示例数据，可删除'],
+          ['S002', '另一家供应商', 'AP00002', '2026-06-15', '2026-07-15', 56000.5, 0, 56000.5, '李采购', '逾期示例']
+        ]
+      : [
+          ['C001', '示例客户有限公司', 'AR00001', '2026-08-01', '2026-08-31', 120000, 20000, 100000, '王销售', '示例数据，可删除'],
+          ['C002', '另一家客户', 'AR00002', '2026-06-15', '2026-07-15', 56000.5, 0, 56000.5, '李销售', '逾期示例']
+        ];
+    downloadCsv('aging-import-template-' + state.reportType + '.csv', [headers].concat(rows));
+  }
+
+  el.type.addEventListener('click', function (event) {
+    var button = event.target.closest('button[data-type]');
+    if (!button) return;
+    state.reportType = button.getAttribute('data-type');
+    render();
+  });
+
+  el.date.addEventListener('change', function () {
+    hideMessage();
+    analyzeNow();
+  });
+  el.threshold.addEventListener('change', function () {
+    hideMessage();
+    analyzeNow();
+  });
+
+  el.importBtn.addEventListener('click', function () { el.file.click(); });
+  el.file.addEventListener('change', function () {
+    var file = el.file.files && el.file.files[0];
+    handleFile(file);
+    el.file.value = '';
+  });
+  el.sampleAr.addEventListener('click', function () { loadSample('receivable'); });
+  el.sampleAp.addEventListener('click', function () { loadSample('payable'); });
+  el.clearBtn.addEventListener('click', clearAll);
+  el.exportBtn.addEventListener('click', exportResults);
+  el.template.addEventListener('click', function (event) {
+    event.preventDefault();
+    downloadTemplate();
+  });
+
+  ['dragenter', 'dragover'].forEach(function (name) {
+    app.addEventListener(name, function (event) {
+      event.preventDefault();
+      app.classList.add('dragover');
+    });
+  });
+  app.addEventListener('dragleave', function (event) {
+    if (event.relatedTarget && app.contains(event.relatedTarget)) return;
+    app.classList.remove('dragover');
+  });
+  app.addEventListener('drop', function (event) {
+    event.preventDefault();
+    app.classList.remove('dragover');
+    var file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+
+  document.addEventListener('langchange', render);
+
+  if (window.AGING_SAMPLES) {
+    loadSample('receivable');
+  } else {
+    render();
+    showMessage('error', L('内置样例未加载。', 'The built-in sample did not load.'));
+  }
+})();
+</script>
+</body>
+</html>
